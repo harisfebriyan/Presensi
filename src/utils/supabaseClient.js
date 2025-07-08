@@ -330,62 +330,6 @@ export const getCameraVerificationSettings = async (forceRefresh = false) => {
   }
 };
 
-// Function to get camera verification settings
-let cachedSettings = null;
-let cacheTime = 0;
-
-export const getCameraVerificationSettings = async (forceRefresh = false) => {
-  // Use a simple in-memory cache to avoid excessive requests
-  
-  // Cache for 5 minutes unless force refresh
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-  const now = Date.now();
-  
-  if (!forceRefresh && cachedSettings && (now - cacheTime < CACHE_DURATION)) {
-    return cachedSettings;
-  }
-  
-  try {
-    if (isPlaceholderUrl || isPlaceholderKey) {
-      // Return default settings when Supabase is not configured
-      cachedSettings = {
-        enabled: true,
-        required_for_admin: false
-      };
-      cacheTime = now;
-      return cachedSettings;
-    }
-
-    const { data, error } = await supabase
-      .from('system_settings')
-      .select('setting_value')
-      .eq('setting_key', 'camera_verification')
-      .eq('is_enabled', true)
-      .maybeSingle();
-
-    if (error && error.code !== 'PGRST116') {
-      await handleAuthError(error);
-      throw error;
-    }
-
-    cachedSettings = data?.setting_value || {
-      enabled: true,
-      required_for_admin: false
-    };
-    cacheTime = now;
-    return cachedSettings;
-  } catch (error) {
-    console.error('Error fetching camera verification settings:', error);
-    await handleAuthError(error);
-    
-    // Return default settings if fetch fails
-    return {
-      enabled: true,
-      required_for_admin: false
-    };
-  }
-};
-
 // Default office location (fallback)
 export const OFFICE_LOCATION = {
   latitude: -6.200000,
