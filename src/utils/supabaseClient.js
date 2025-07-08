@@ -275,10 +275,11 @@ export const getOfficeLocation = async () => {
 };
 
 // Function to get camera verification settings
+let cachedSettings = null;
+let cacheTime = 0;
+
 export const getCameraVerificationSettings = async (forceRefresh = false) => {
   // Use a simple in-memory cache to avoid excessive requests
-  static let cachedSettings = null;
-  static let cacheTime = 0;
   
   // Cache for 5 minutes unless force refresh
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
