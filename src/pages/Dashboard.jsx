@@ -9,7 +9,7 @@ import { supabase } from '../utils/supabaseClient';
 import AttendanceForm from '../components/AttendanceForm';
 import NotificationSystem from '../components/NotificationSystem';
 import { getCameraVerificationSettings } from '../utils/supabaseClient';
-import Calendar from 'react-calendar';
+import ReactCalendar from 'react-calendar';
 import { format, isToday, isWeekend, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -815,7 +815,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <div className="p-4">
-                  <Calendar
+                  <ReactCalendar
                     onChange={handleMonthChange}
                     value={currentMonth}
                     tileContent={tileContent}
