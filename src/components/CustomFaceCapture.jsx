@@ -502,6 +502,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
               <p className="flex items-center">
                 <Volume2 className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
                 <span>Sistem akan memberikan panduan suara untuk membantu Anda</span>
+              </p>
             </div>
             <button
               onClick={() => {
@@ -529,10 +530,8 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           playsInline
           ref={videoRef}
           autoPlay
-          playsInline
           muted
           onLoadedMetadata={handleVideoPlay}
-          className="w-full h-auto max-w-md mx-auto"
         />
 
         {/* Audio toggle button */}
