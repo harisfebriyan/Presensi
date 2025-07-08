@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Camera, CameraOff, CheckCircle, XCircle, AlertTriangle, Eye, Sun, Moon } from 'lucide-react';
+import { Camera, CameraOff, CheckCircle, XCircle, AlertTriangle, Eye, Sun, Moon, Volume2, VolumeX } from 'lucide-react';
 import { processImageBlob, detectFacePattern, extractFaceRegion } from '../utils/customFaceRecognition';
 
 const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
@@ -7,6 +7,8 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
   const intervalRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const audioEnabled = useRef(true);
   
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,6 +19,10 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
   const [lastFeedbackTime, setLastFeedbackTime] = useState(0);
   const [lightingFeedback, setLightingFeedback] = useState(null);
   const [brightness, setBrightness] = useState(0);
+  const [positionFeedback, setPositionFeedback] = useState(null);
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [lastSpokenMessage, setLastSpokenMessage] = useState('');
+  const [lastSpokenTime, setLastSpokenTime] = useState(0);
 
   useEffect(() => {
     initializeCamera();
@@ -75,6 +81,49 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
     }
   };
 
+  // Initialize audio context for voice feedback
+  const initAudioContext = () => {
+    try {
+      if (!audioContextRef.current) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioContextRef.current = new AudioContext();
+      }
+    } catch (e) {
+      console.log('Web Audio API not supported:', e);
+    }
+  };
+
+  // Speak text using Web Speech API
+  const speakText = (text) => {
+    if (audioMuted || !audioEnabled.current) return;
+    
+    // Don't repeat the same message within 3 seconds
+    const now = Date.now();
+    if (text === lastSpokenMessage && now - lastSpokenTime < 3000) {
+      return;
+    }
+    
+    try {
+      if ('speechSynthesis' in window) {
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'id-ID';
+        utterance.volume = 1;
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        
+        window.speechSynthesis.speak(utterance);
+        
+        setLastSpokenMessage(text);
+        setLastSpokenTime(now);
+      }
+    } catch (e) {
+      console.log('Speech synthesis not supported:', e);
+    }
+  };
+
   const handleVideoPlay = () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -83,6 +132,8 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
     
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    
+    initAudioContext();
     
     startFaceDetection();
   };
@@ -110,6 +161,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           
           // If face status changes from not detected to detected
           if (!faceDetected && hasValidFace) {
+            speakText("Wajah terdeteksi");
             playSimpleBeep();
           }
           
@@ -128,11 +180,13 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           if (now - lastFeedbackTime > 3000) { // Only provide feedback every 3 seconds
             if (avgBrightness < 70) {
               setLightingFeedback('low');
+              speakText("Pencahayaan terlalu gelap, tambahkan cahaya");
               playSimpleBeep();
             } else if (avgBrightness > 200) {
               setLightingFeedback('high');
+              speakText("Pencahayaan terlalu terang, kurangi cahaya");
               playSimpleBeep();
-            } else {
+            } else if (lightingFeedback !== null) {
               setLightingFeedback(null);
             }
             setLastFeedbackTime(now);
@@ -141,8 +195,19 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           // Auto-capture if face is good quality for 3 seconds
           if (hasValidFace && quality >= 10 && captureCountdown === null) {
             setCaptureCountdown(3);
+            speakText("Wajah terdeteksi dengan baik, pengambilan foto dalam 3 detik");
             playSimpleBeep();
-          } else if ((!hasValidFace || quality < 5) && captureCountdown !== null) {
+          } 
+          // Provide position feedback
+          else if (hasValidFace && quality < 10 && now - lastFeedbackTime > 3000) {
+            setPositionFeedback('center');
+            speakText("Posisikan wajah tepat di tengah kamera");
+            setLastFeedbackTime(now);
+          }
+          // Cancel countdown if face quality drops
+          else if ((!hasValidFace || quality < 5) && captureCountdown !== null) {
+            speakText("Wajah hilang, pengambilan foto dibatalkan");
+            playSimpleBeep();
             setCaptureCountdown(null);
           }
         } else {
@@ -150,6 +215,10 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           setFaceQuality(0);
           setBrightness(0);
           if (captureCountdown !== null) {
+            speakText("Wajah tidak terdeteksi, pengambilan foto dibatalkan");
+            setCaptureCountdown(null);
+          } else if (now - lastFeedbackTime > 5000) {
+            speakText("Posisikan wajah Anda di dalam bingkai");
             setCaptureCountdown(null);
           }
         }
@@ -167,6 +236,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
     if (captureCountdown !== null && captureCountdown > 0) {
       timer = setTimeout(() => {
         setCaptureCountdown(prev => prev - 1);
+        speakText(captureCountdown.toString());
         playSimpleBeep();
       }, 1000);
     } else if (captureCountdown === 0) {
@@ -177,6 +247,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
       if (timer) clearTimeout(timer);
     };
   }, [captureCountdown]);
+  
 
   const calculateImageQuality = (imageData) => {
     const { data } = imageData;
@@ -256,6 +327,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
       
       // Draw current video frame to canvas
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      speakText("Foto berhasil diambil");
       
       // Convert canvas to blob
       canvas.toBlob(async (blob) => {
@@ -270,6 +342,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           const result = await processImageBlob(blob);
           
           if (!result.isValidFace) {
+            speakText("Wajah tidak terdeteksi dengan baik. Silakan coba lagi dengan posisi yang lebih baik.");
             setError('Wajah tidak terdeteksi dengan baik. Silakan coba lagi dengan posisi yang lebih baik.');
             playSimpleBeep();
             return;
@@ -277,6 +350,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           
           console.log('✅ Face captured successfully with fingerprint');
           playSimpleBeep();
+          speakText("Verifikasi wajah berhasil");
           
           if (onFaceCapture) {
             onFaceCapture(blob, result.fingerprint);
@@ -287,6 +361,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           
         } catch (err) {
           console.error('Face processing error:', err);
+          speakText("Gagal memproses foto wajah. Silakan coba lagi.");
           setError(err.message || 'Gagal memproses foto wajah. Silakan coba lagi.');
           playSimpleBeep();
         }
@@ -294,6 +369,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
       
     } catch (err) {
       console.error('Photo capture error:', err);
+      speakText("Gagal mengambil foto. Silakan coba lagi.");
       setError(err.message || 'Gagal mengambil foto. Silakan coba lagi.');
       playSimpleBeep();
     }
@@ -301,7 +377,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
 
   const getFaceStatusMessage = () => {
     if (captureCountdown !== null) return `Foto dalam ${captureCountdown}...`;
-    if (!faceDetected) return 'Posisikan wajah di dalam bingkai';
+    if (!faceDetected) return 'Wajah tidak terdeteksi';
     if (faceQuality < 10) return `Kualitas kurang baik (${faceQuality}%)`;
     if (faceQuality < 15) return `Kualitas cukup (${faceQuality}%)`;
     return `Wajah terdeteksi - Kualitas: ${faceQuality}%`;
@@ -322,6 +398,22 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
     if (faceQuality < 15) return <AlertTriangle className="h-4 w-4" />;
     return <CheckCircle className="h-4 w-4" />;
   };
+
+  const getPositionFeedback = () => {
+    if (positionFeedback === 'center') {
+      return (
+        <div className="absolute top-24 left-4 right-4 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm animate-pulse">
+          <div className="flex items-center space-x-2">
+            <Eye className="h-4 w-4" />
+            <span>Posisikan wajah tepat di tengah bingkai</span>
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
 
   const getLightingFeedback = () => {
     if (lightingFeedback === 'low') {
@@ -344,6 +436,15 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
       );
     }
     return null;
+  };
+
+  const toggleAudio = () => {
+    setAudioMuted(!audioMuted);
+    audioEnabled.current = !audioMuted;
+    
+    if (!audioMuted) {
+      speakText("Audio dimatikan");
+    }
   };
 
   if (isLoading) {
@@ -378,7 +479,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
       {/* Instructions Overlay - shown initially */}
       {showInstructions && (
         <div className="absolute inset-0 z-20 bg-black bg-opacity-70 flex items-center justify-center rounded-lg">
-          <div className="bg-white p-6 rounded-lg max-w-md text-center">
+          <div className="bg-white p-6 rounded-lg max-w-md text-center animate-fadeIn">
             <Camera className="h-12 w-12 text-blue-600 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-gray-900 mb-3">Petunjuk Verifikasi Wajah</h3>
             <div className="space-y-3 text-left mb-6">
@@ -398,6 +499,9 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
                 <CheckCircle className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
                 <span>Sistem akan otomatis mengambil foto saat wajah terdeteksi dengan baik</span>
               </p>
+              <p className="flex items-center">
+                <Volume2 className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" />
+                <span>Sistem akan memberikan panduan suara untuk membantu Anda</span>
             </div>
             <button
               onClick={() => {
@@ -414,6 +518,15 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
 
       <div className="relative bg-black rounded-lg overflow-hidden">
         <video
+          className="w-full h-auto max-w-md mx-auto"
+          style={{
+            transform: 'scaleX(-1)', /* Mirror the video for more natural experience */
+            WebkitTransform: 'scaleX(-1)',
+            MozTransform: 'scaleX(-1)',
+            OTransform: 'scaleX(-1)',
+            msTransform: 'scaleX(-1)'
+          }}
+          playsInline
           ref={videoRef}
           autoPlay
           playsInline
@@ -421,6 +534,15 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           onLoadedMetadata={handleVideoPlay}
           className="w-full h-auto max-w-md mx-auto"
         />
+
+        {/* Audio toggle button */}
+        <button 
+          onClick={toggleAudio}
+          className="absolute top-4 left-4 z-10 bg-black/50 p-2 rounded-full text-white hover:bg-black/70"
+          title={audioMuted ? "Unmute audio" : "Mute audio"}
+        >
+          {audioMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+        </button>
         
         {/* Face detection status overlay */}
         <div className="absolute top-4 right-4">
@@ -429,6 +551,9 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
             <span className="text-sm">{getFaceStatusMessage()}</span>
           </div>
         </div>
+        
+        {/* Lighting feedback */}
+        {getPositionFeedback()}
         
         {/* Lighting feedback */}
         {getLightingFeedback()}
@@ -449,12 +574,21 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
         
         {/* Center guide for face positioning */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className={`w-48 h-64 border-2 rounded-lg transition-colors ${
+          <div className={`w-48 h-64 border-2 rounded-lg transition-all ${
             faceDetected 
               ? faceQuality >= 15 ? 'border-green-400' : faceQuality >= 10 ? 'border-yellow-400' : 'border-red-400'
               : 'border-white/30'
           }`}>
             <div className="flex items-center justify-center h-full">
+              <Eye className={`h-8 w-8 ${
+                faceDetected 
+                  ? faceQuality >= 15 
+                    ? 'text-green-400 animate-pulse' 
+                    : faceQuality >= 10 
+                      ? 'text-yellow-400 animate-pulse' 
+                      : 'text-red-400 animate-pulse'
+                  : 'text-white/50'
+              }`} />
               <Eye className={`h-8 w-8 ${
                 faceDetected 
                   ? faceQuality >= 15 ? 'text-green-400' : faceQuality >= 10 ? 'text-yellow-400' : 'text-red-400'
@@ -466,7 +600,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
         
         {/* Countdown overlay */}
         {captureCountdown !== null && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 animate-fadeIn">
             <div className="w-24 h-24 rounded-full bg-blue-600 flex items-center justify-center text-white text-4xl font-bold animate-pulse">
               {captureCountdown}
             </div>
@@ -475,7 +609,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
         
         {/* Quality indicator */}
         {faceDetected && (
-          <div className="absolute bottom-4 left-4 right-4">
+          <div className="absolute bottom-4 left-4 right-4 animate-fadeIn">
             <div className="bg-black/50 rounded-lg p-2">
               <div className="flex items-center justify-between text-white text-sm mb-1">
                 <span>Kualitas Foto</span>
@@ -483,7 +617,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
               </div>
               <div className="w-full bg-gray-600 rounded-full h-2">
                 <div 
-                  className={`h-2 rounded-full transition-all ${
+                  className={`h-2 rounded-full transition-all animate-pulse ${
                     faceQuality >= 15 ? 'bg-green-500' :
                     faceQuality >= 10 ? 'bg-yellow-500' : 'bg-red-500'
                   }`}
@@ -496,7 +630,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
                 <span>Pencahayaan</span>
                 <div className="flex items-center">
                   {brightness < 70 ? <Moon className="h-3 w-3 mr-1 text-blue-300" /> : 
-                   brightness > 200 ? <Sun className="h-3 w-3 mr-1 text-yellow-300" /> : 
+                   brightness > 200 ? <Sun className="h-3 w-3 mr-1 text-yellow-300 animate-pulse" /> : 
                    <CheckCircle className="h-3 w-3 mr-1 text-green-300" />}
                   <span>{brightness < 70 ? 'Terlalu Gelap' : 
                          brightness > 200 ? 'Terlalu Terang' : 
@@ -504,7 +638,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
                 </div>
               </div>
               <div className="w-full bg-gray-600 rounded-full h-2">
-                <div 
+                <div
                   className={`h-2 rounded-full transition-all ${
                     brightness < 70 ? 'bg-blue-500' :
                     brightness > 200 ? 'bg-yellow-500' : 'bg-green-500'
@@ -518,7 +652,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
       </div>
       
       <canvas ref={canvasRef} className="hidden" />
-      
+
       {/* Capture button */}
       <div className="mt-4 text-center">
         <button
@@ -526,7 +660,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
           disabled={!faceDetected || isCapturing}
           className={`px-6 py-3 rounded-lg font-medium transition-all ${
             faceDetected && !isCapturing
-              ? faceQuality >= 10 
+              ? faceQuality >= 10
                 ? 'bg-green-600 text-white hover:bg-green-700 shadow-lg hover:shadow-xl'
                 : 'bg-yellow-600 text-white hover:bg-yellow-700 shadow-lg hover:shadow-xl'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -534,7 +668,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
         >
           <div className="flex items-center space-x-2">
             <Camera className="h-5 w-5" />
-            <span>{isCapturing ? 'Memproses...' : 'Ambil Foto'}</span>
+            <span>{isCapturing ? 'Memproses...' : 'Ambil Foto Wajah'}</span>
           </div>
         </button>
       </div>
@@ -542,7 +676,7 @@ const CustomFaceCapture = ({ onFaceCapture, isCapturing = false }) => {
       <div className="mt-3 text-center">
         <p className="text-sm text-gray-600">
           Posisikan wajah dalam bingkai dan pastikan pencahayaan yang baik
-        </p>
+        </p> 
         <p className="text-xs text-gray-500 mt-1">
           {faceQuality < 10 
             ? "Kualitas gambar terlalu rendah, perbaiki pencahayaan" 
