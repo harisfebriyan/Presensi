@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, User, Save, ArrowLeft, CheckCircle, AlertCircle, Lock, Mail, Phone, MapPin, Edit, CreditCard, Building } from 'lucide-react';
+import { Camera, User, Save, ArrowLeft, CheckCircle, AlertCircle, Lock, Mail, Phone, MapPin, Edit, CreditCard, Building, AlertTriangle } from 'lucide-react';
 import { supabase, uploadFile, getFileUrl } from '../utils/supabaseClient';
 import CustomFaceCapture from '../components/CustomFaceCapture';
 
@@ -10,6 +10,7 @@ const ProfileSetup = () => {
   const [profile, setProfile] = useState(null);
   const [banks, setBanks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [activeTab, setActiveTab] = useState('face'); // 'face', 'profile', 'bank', 'password'
   const [facePhoto, setFacePhoto] = useState(null);
   const [faceFingerprint, setFaceFingerprint] = useState(null);
@@ -83,6 +84,7 @@ const ProfileSetup = () => {
 
       if (data) {
         setProfile(data);
+        setIsAdmin(data.role === 'admin');
         setProfileData({
           name: data.name || '',
           full_name: data.full_name || '',
@@ -384,7 +386,7 @@ const ProfileSetup = () => {
           <div className="flex items-center space-x-4 mb-4">
             <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
               {profile?.avatar_url ? (
-                <img 
+                <img
                   src={profile.avatar_url} 
                   alt="Profile" 
                   className="w-16 h-16 rounded-full object-cover"
@@ -436,11 +438,18 @@ const ProfileSetup = () => {
           <div className="border-b border-gray-200">
             <nav className="flex flex-wrap">
               <button
-                onClick={() => setActiveTab('face')}
+                onClick={() => {
+                  // Only allow changing to face tab if admin or face not registered
+                  if (isAdmin || !profile?.is_face_registered) {
+                    setActiveTab('face');
+                  }
+                }}
                 className={`px-6 py-4 text-sm font-medium ${
                   activeTab === 'face'
                     ? 'border-b-2 border-blue-500 text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    : profile?.is_face_registered && !isAdmin
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 <Camera className="h-4 w-4 inline mr-2" />
@@ -486,57 +495,97 @@ const ProfileSetup = () => {
             {/* Face Photo Tab */}
             {activeTab === 'face' && (
               <div>
-                <div className="text-center mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Setup Foto Wajah</h3>
-                  <p className="text-gray-600">
-                    Foto wajah digunakan untuk verifikasi absensi yang aman dan akurat
-                  </p>
-                </div>
-
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-900 mb-2">✨ Keunggulan Sistem Kami</h4>
-                  <div className="text-sm text-yellow-700 space-y-1">
-                    <p>• Gunakan minimal 6 karakter</p>
-                    <p>• Kombinasikan huruf besar, kecil, dan angka</p>
-                    <p>• Jangan gunakan informasi pribadi yang mudah ditebak</p>
-                    <p>• Ubah password secara berkala</p>
-                  </div>
-                </div>
-
-                <CustomFaceCapture 
-                  onFaceCapture={handleFaceCapture} 
-                  isCapturing={isSubmitting}
-                />
-
-                {facePhoto && (
-                  <div className="mt-6 text-center">
-                    <div className="inline-flex items-center space-x-2 text-green-600 mb-4">
-                      <CheckCircle className="h-5 w-5" />
-                      <span>Foto wajah berhasil diambil dan diverifikasi!</span>
-                    </div>
-                    
-                    <button
-                      onClick={handleSaveFace}
-                      disabled={isSubmitting}
-                      className="bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      {isSubmitting ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="inline-flex space-x-1">
-                            <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                            <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                            <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                          </div>
-                          <span>Menyimpan...</span>
-                        </div>
+                {profile?.is_face_registered && !isAdmin ? (
+                  <div className="text-center py-8">
+                    <div className="w-24 h-24 mx-auto mb-4 relative">
+                      {profile.avatar_url ? (
+                        <img 
+                          src={profile.avatar_url} 
+                          alt="Profile" 
+                          className="w-24 h-24 rounded-full object-cover border-4 border-green-100"
+                        />
                       ) : (
-                        <div className="flex items-center space-x-2">
-                          <Save className="h-4 w-4" />
-                          <span>Simpan Foto Wajah</span>
+                        <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center">
+                          <User className="h-12 w-12 text-blue-600" />
                         </div>
                       )}
-                    </button>
+                      <div className="absolute bottom-0 right-0 bg-green-500 text-white p-1 rounded-full">
+                        <CheckCircle className="h-5 w-5" />
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Wajah Terverifikasi</h3>
+                    <p className="text-gray-600 mb-6">
+                      Foto wajah Anda telah terdaftar dan terverifikasi dalam sistem.
+                      Anda dapat menggunakan verifikasi wajah untuk absensi.
+                    </p>
+                    <div className="p-4 bg-yellow-50 rounded-lg text-left">
+                      <div className="flex items-start space-x-3">
+                        <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-yellow-800 font-medium">Perhatian</p>
+                          <p className="text-yellow-700 text-sm mt-1">
+                            Foto wajah yang sudah terverifikasi tidak dapat diubah oleh pengguna.
+                            Jika Anda perlu mengubah foto wajah, silakan hubungi administrator.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="text-center mb-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Setup Foto Wajah</h3>
+                      <p className="text-gray-600">
+                        Foto wajah digunakan untuk verifikasi absensi yang aman dan akurat
+                      </p>
+                    </div>
+
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-blue-900 mb-2">✨ Keunggulan Sistem Kami</h4>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• Teknologi pengenalan wajah yang aman dan cepat</li>
+                        <li>• Tidak memerlukan download model AI eksternal</li>
+                        <li>• Analisis pola wajah dengan algoritma custom</li>
+                        <li>• Data tersimpan aman dengan enkripsi</li>
+                      </ul>
+                    </div>
+
+                    <CustomFaceCapture 
+                      onFaceCapture={handleFaceCapture} 
+                      isCapturing={isSubmitting}
+                    />
+
+                    {facePhoto && (
+                      <div className="mt-6 text-center">
+                        <div className="inline-flex items-center space-x-2 text-green-600 mb-4">
+                          <CheckCircle className="h-5 w-5" />
+                          <span>Foto wajah berhasil diambil dan diverifikasi!</span>
+                        </div>
+                        
+                        <button
+                          onClick={handleSaveFace}
+                          disabled={isSubmitting}
+                          className="bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {isSubmitting ? (
+                            <div className="flex items-center space-x-2">
+                              <div className="inline-flex space-x-1">
+                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                              </div>
+                              <span>Menyimpan...</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <Save className="h-4 w-4" />
+                              <span>Simpan Foto Wajah</span>
+                            </div>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -701,7 +750,6 @@ const ProfileSetup = () => {
                       Pilih Bank *
                     </label>
                     <div className="relative">
-                    <div className="relative">
                     <select
                       name="bank_id"
                       value={bankData.bank_id}
@@ -715,7 +763,6 @@ const ProfileSetup = () => {
                         </option>
                       ))}
                     </select>
-                    </div>
                     </div>
                     {getSelectedBank() && (
                       <div className="mt-2 flex items-center space-x-2 text-sm text-gray-600">
@@ -735,22 +782,9 @@ const ProfileSetup = () => {
                                 </div>
                               `;
                             }}
-                            onError={(e) => {
-                              e.target.onerror = null;
-                              e.target.src = '';
-                              e.target.parentElement.innerHTML = `
-                                <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                  </svg>
-                                </div>
-                              `;
-                            }}
                           />
                         )}
                         {getSelectedBank() && (
-                          <span>Bank {getSelectedBank().bank_name}</span>
-                        )}
                           <span>Bank {getSelectedBank().bank_name}</span>
                         )}
                       </div>
