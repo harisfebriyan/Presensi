@@ -43,6 +43,7 @@ const Login = () => {
     try {
       console.log('Mencoba login untuk:', formData.email);
 
+      
       // Check if Supabase is configured
       if (!isSupabaseConfigured()) {
         throw new Error('Sistem belum dikonfigurasi. Silakan hubungi administrator untuk mengatur koneksi database.');
@@ -260,11 +261,7 @@ const Login = () => {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600 text-sm">
-              Hubungi administrator untuk mendapatkan akun
-            </p>
-          </div>
+         
         </div>
 
         {/* Database Export Info */}
