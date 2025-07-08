@@ -268,21 +268,7 @@ const Login = () => {
         </div>
 
         {/* Database Export Info */}
-        <div className="mt-6 p-4 bg-white/20 backdrop-blur-sm rounded-lg text-white">
-          <p className="text-sm font-medium mb-2">
-            <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs mr-2">INFO</span>
-            Ekspor Database
-          </p>
-          <div className="text-xs space-y-1">
-            <p>Untuk mengekspor database Supabase:</p>
-            <ol className="list-decimal list-inside space-y-1 pl-2">
-              <li>Buka dashboard Supabase project Anda</li>
-              <li>Pilih menu "Database" → "Backups"</li>
-              <li>Klik "Generate backup" untuk membuat backup terbaru</li>
-              <li>Download backup SQL yang berisi seluruh skema dan data</li>
-            </ol>
-          </div>
-        </div>
+     
       </div>
     </div>
   );
