@@ -61,6 +61,11 @@ const AdminPanel = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showEmployeeDetail, setShowEmployeeDetail] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [cameraSettings, setCameraSettings] = useState({
+    enabled: true,
+    required_for_admin: false
+  });
 
   useEffect(() => {
     checkAccess();
@@ -225,9 +230,46 @@ const AdminPanel = () => {
         settingsObj[setting.setting_key] = setting.setting_value;
       });
       setSystemSettings(settingsObj);
+      
+      // Get camera verification settings
+      const cameraVerificationSetting = settingsData?.find(s => s.setting_key === 'camera_verification');
+      if (cameraVerificationSetting?.setting_value) {
+        setCameraSettings(cameraVerificationSetting.setting_value);
+      }
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+    }
+  };
+
+  const handleSaveCameraSettings = async () => {
+    try {
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({
+          setting_key: 'camera_verification',
+          setting_value: {
+            ...cameraSettings,
+            updated_by: user.id,
+            updated_at: new Date().toISOString()
+          },
+          description: 'Controls whether face verification is required for attendance',
+          is_enabled: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'setting_key'
+        });
+
+      if (error) throw error;
+
+      setSuccess('Pengaturan verifikasi kamera berhasil disimpan!');
+      setShowSettingsModal(false);
+      
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error('Error saving camera settings:', error);
+      setError('Gagal menyimpan pengaturan verifikasi kamera');
     }
   };
 
@@ -393,6 +435,13 @@ const AdminPanel = () => {
                 </p>
               </div>
               <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowSettingsModal(true)}
+                  className="flex items-center space-x-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Settings className="h-4 w-4" />
+                  <span>Pengaturan</span>
+                </button>
                 <button
                   onClick={() => setShowExportModal(true)}
                   className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -720,8 +769,10 @@ const AdminPanel = () => {
                 <div className="flex items-center space-x-3">
                   <Camera className="h-8 w-8 text-orange-600" />
                   <div>
-                    <p className="font-medium text-gray-900">Face Recognition</p>
-                    <p className="text-sm text-gray-600">Custom Algorithm</p>
+                    <p className="font-medium text-gray-900">Verifikasi Wajah</p>
+                    <p className="text-sm text-gray-600">
+                      {cameraSettings.enabled ? 'Aktif' : 'Nonaktif'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -904,6 +955,85 @@ const AdminPanel = () => {
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Tutup
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Camera Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="max-w-md w-full bg-white rounded-xl shadow-lg">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">Pengaturan Sistem</h2>
+                <button
+                  onClick={() => setShowSettingsModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                {/* Camera Verification Settings */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-medium text-blue-900 mb-3">Verifikasi Kamera</h3>
+                  <div className="space-y-4">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="camera-enabled"
+                        checked={cameraSettings.enabled}
+                        onChange={(e) => setCameraSettings(prev => ({
+                          ...prev,
+                          enabled: e.target.checked
+                        }))}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label htmlFor="camera-enabled" className="ml-2 block text-sm text-gray-900">
+                        Aktifkan verifikasi wajah untuk absensi
+                      </label>
+                    </div>
+                    
+                    <div className="p-3 bg-white rounded-lg">
+                      <p className="text-sm text-gray-600">
+                        {cameraSettings.enabled 
+                          ? 'Karyawan harus melakukan verifikasi wajah saat absensi' 
+                          : 'Karyawan dapat absensi tanpa verifikasi wajah'}
+                      </p>
+                    </div>
+                    
+                    <div className="p-3 bg-yellow-50 rounded-lg">
+                      <div className="flex items-start space-x-2">
+                        <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-yellow-700">
+                          Menonaktifkan verifikasi wajah akan mengurangi keamanan sistem absensi, 
+                          tetapi dapat berguna jika terjadi masalah dengan kamera atau perangkat.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowSettingsModal(false)}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleSaveCameraSettings}
+                    className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <Save className="h-4 w-4" />
+                      <span>Simpan Pengaturan</span>
+                    </div>
                   </button>
                 </div>
               </div>

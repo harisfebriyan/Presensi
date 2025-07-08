@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Clock, MapPin, Camera, CheckCircle, AlertCircle, User, Edit, Bell } from 'lucide-react';
-import { supabase, getOfficeLocation } from '../utils/supabaseClient';
+import { supabase, getOfficeLocation, getCameraVerificationSettings } from '../utils/supabaseClient';
 import { processImageUrl, compareFaceFingerprints } from '../utils/customFaceRecognition';
 import CustomFaceCapture from './CustomFaceCapture';
 import LocationValidator from './LocationValidator';
@@ -18,12 +18,25 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
   const [lastAttendance, setLastAttendance] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [cameraVerificationEnabled, setCameraVerificationEnabled] = useState(true);
 
   useEffect(() => {
     fetchUserProfile();
     fetchLastAttendance();
     determineAttendanceType();
+    fetchCameraSettings();
   }, [user, todayAttendance]);
+
+  const fetchCameraSettings = async () => {
+    try {
+      const settings = await getCameraVerificationSettings();
+      setCameraVerificationEnabled(settings.enabled);
+    } catch (error) {
+      console.error('Error fetching camera settings:', error);
+      // Default to enabled if there's an error
+      setCameraVerificationEnabled(true);
+    }
+  };
 
   const determineAttendanceType = () => {
     const hasCheckedIn = todayAttendance.some(r => r.type === 'masuk' && r.status === 'berhasil');
@@ -48,7 +61,7 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
       setUserProfile(data);
 
       // Load stored face fingerprint if avatar exists
-      if (data.avatar_url) {
+      if (data.avatar_url && cameraVerificationEnabled) {
         try {
           const result = await processImageUrl(data.avatar_url);
           setStoredFingerprint(result.fingerprint);
@@ -89,8 +102,10 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
   const handleLocationValidated = (isValid, location) => {
     setValidLocation(isValid);
     setUserLocation(location);
-    if (isValid) {
+    if (isValid && cameraVerificationEnabled) {
       setStep(2); // Move to face verification step
+    } else if (isValid && !cameraVerificationEnabled) {
+      setStep(3); // Skip face verification if disabled
     }
   };
 
@@ -101,6 +116,11 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
   };
 
   const verifyFace = async () => {
+    // Skip face verification if disabled
+    if (!cameraVerificationEnabled) {
+      return true;
+    }
+    
     if (!faceFingerprint || !storedFingerprint) {
       throw new Error('Data wajah tidak tersedia untuk verifikasi');
     }
@@ -166,8 +186,13 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
   };
 
   const submitAttendance = async () => {
-    if (!validLocation || !userLocation || !faceFingerprint) {
-      setError('Silakan selesaikan verifikasi lokasi dan wajah');
+    if (!validLocation || !userLocation) {
+      setError('Silakan selesaikan verifikasi lokasi');
+      return;
+    }
+    
+    if (cameraVerificationEnabled && !faceFingerprint) {
+      setError('Silakan selesaikan verifikasi wajah');
       return;
     }
 
@@ -185,8 +210,10 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
     setError(null);
 
     try {
-      // Verify face first
-      await verifyFace();
+      // Verify face first (if enabled)
+      if (cameraVerificationEnabled) {
+        await verifyFace();
+      }
 
       const now = new Date();
       const { isLate, lateMinutes, workHours, overtimeHours } = calculateWorkDetails();
@@ -214,12 +241,12 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
         status: 'berhasil',
-        is_late: isLate,
+        is_late: isLate, 
         late_minutes: lateMinutes,
         work_hours: workHours,
         overtime_hours: overtimeHours,
         daily_salary_earned: dailySalaryEarned,
-        notes: `Absensi ${attendanceType} berhasil dengan verifikasi wajah dan lokasi. ${isLate ? `Terlambat ${lateMinutes} menit.` : 'Tepat waktu.'}`
+        notes: `Absensi ${attendanceType} berhasil dengan verifikasi ${cameraVerificationEnabled ? 'wajah dan ' : ''}lokasi. ${isLate ? `Terlambat ${lateMinutes} menit.` : 'Tepat waktu.'}`
       };
 
       // Set check-in or check-out time
@@ -284,7 +311,7 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
       // Determine error status
       let errorStatus = 'gagal';
       if (err.message.includes('wajah') || err.message.includes('Verifikasi wajah')) {
-        errorStatus = 'wajah_tidak_valid';
+        errorStatus = cameraVerificationEnabled ? 'wajah_tidak_valid' : 'gagal';
       } else if (err.message.includes('lokasi')) {
         errorStatus = 'lokasi_tidak_valid';
       }
@@ -436,7 +463,7 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
   }
 
   // Don't show form if no stored fingerprint and show profile setup option
-  if (!storedFingerprint && error && error.includes('Foto profil')) {
+  if (cameraVerificationEnabled && !storedFingerprint && error && error.includes('Foto profil')) {
     return (
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8 text-white">
@@ -473,7 +500,7 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
   }
 
   // Don't show form if no stored fingerprint
-  if (!storedFingerprint && !error) {
+  if (cameraVerificationEnabled && !storedFingerprint && !error) {
     return (
       <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8 text-white">
@@ -603,7 +630,7 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && cameraVerificationEnabled && (
           <div>
             <div className="flex items-center space-x-2 mb-4">
               <Camera className="h-5 w-5 text-blue-600" />
@@ -628,7 +655,7 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
         {step === 3 && (
           <div>
             <div className="flex items-center space-x-2 mb-4">
-              <CheckCircle className="h-5 w-5 text-blue-600" />
+              <CheckCircle className="h-5 w-5 text-blue-600" /> 
               <h3 className="text-lg font-semibold">Langkah 3: Kirim Absensi</h3>
             </div>
             
@@ -638,12 +665,14 @@ const AttendanceForm = ({ user, onAttendanceSubmitted, todayAttendance = [] }) =
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span>Lokasi:</span>
-                  <span className="text-green-600 font-medium">✓ Terverifikasi</span>
+                  <span className="text-green-600 font-medium">✓ Terverifikasi</span> 
                 </div>
-                <div className="flex items-center justify-between">
-                  <span>Pengenalan Wajah:</span>
-                  <span className="text-green-600 font-medium">✓ Terverifikasi</span>
-                </div>
+                {cameraVerificationEnabled && (
+                  <div className="flex items-center justify-between">
+                    <span>Pengenalan Wajah:</span>
+                    <span className="text-green-600 font-medium">✓ Terverifikasi</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span>Jenis:</span>
                   <span className="font-medium">

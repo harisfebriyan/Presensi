@@ -20,6 +20,7 @@ import {
 import { supabase } from '../utils/supabaseClient';
 import AttendanceForm from '../components/AttendanceForm';
 import NotificationSystem from '../components/NotificationSystem';
+import { getCameraVerificationSettings } from '../utils/supabaseClient';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -41,6 +42,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showAttendanceForm, setShowAttendanceForm] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [cameraVerificationEnabled, setCameraVerificationEnabled] = useState(true);
 
   // Memoize expensive calculations
   const isAdmin = useMemo(() => profile?.role === 'admin', [profile?.role]);
@@ -72,7 +74,8 @@ const Dashboard = () => {
         fetchUserProfile(user.id),
         fetchAttendanceData(user.id),
         fetchSalaryInfo(user.id),
-        fetchWarnings(user.id)
+        fetchWarnings(user.id),
+        fetchCameraSettings()
       ]);
     } catch (error) {
       console.error('Error checking user:', error);
@@ -294,8 +297,19 @@ const Dashboard = () => {
     }
   }, [user, fetchAttendanceData]);
 
+  const fetchCameraSettings = useCallback(async () => {
+    try {
+      const settings = await getCameraVerificationSettings();
+      setCameraVerificationEnabled(settings.enabled);
+    } catch (error) {
+      console.error('Error fetching camera settings:', error);
+      // Default to enabled if there's an error
+      setCameraVerificationEnabled(true);
+    }
+  }, []);
+
   const handleAttendanceClick = useCallback(() => {
-    if (!profile?.is_face_registered) {
+    if (cameraVerificationEnabled && !profile?.is_face_registered) {
       setShowProfileModal(true);
       return;
     }
@@ -310,7 +324,7 @@ const Dashboard = () => {
     }
 
     setShowAttendanceForm(true);
-  }, [profile?.is_face_registered, todayAttendance]);
+  }, [profile?.is_face_registered, todayAttendance, cameraVerificationEnabled]);
 
   // Memoize utility functions
   const getStatusColor = useCallback((status) => {

@@ -274,6 +274,44 @@ export const getOfficeLocation = async () => {
   }
 };
 
+// Function to get camera verification settings
+export const getCameraVerificationSettings = async () => {
+  try {
+    if (isPlaceholderUrl || isPlaceholderKey) {
+      // Return default settings when Supabase is not configured
+      return {
+        enabled: true,
+        required_for_admin: false
+      };
+    }
+
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('setting_value')
+      .eq('setting_key', 'camera_verification')
+      .eq('is_enabled', true)
+      .maybeSingle();
+
+    if (error && error.code !== 'PGRST116') {
+      await handleAuthError(error);
+      throw error;
+    }
+    
+    return data?.setting_value || {
+      enabled: true,
+      required_for_admin: false
+    };
+  } catch (error) {
+    console.error('Error fetching camera verification settings:', error);
+    await handleAuthError(error);
+    // Return default settings if fetch fails
+    return {
+      enabled: true,
+      required_for_admin: false
+    };
+  }
+};
+
 // Default office location (fallback)
 export const OFFICE_LOCATION = {
   latitude: -6.200000,
