@@ -1,26 +1,17 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Clock, 
-  Calendar, 
-  MapPin, 
-  User, 
-  LogOut, 
-  CheckCircle, 
-  XCircle,
-  AlertTriangle,
-  BarChart3,
-  Settings,
-  Camera,
-  Edit,
-  DollarSign,
-  TrendingUp,
-  Bell
+  Clock, Calendar, MapPin, User, LogOut, CheckCircle, XCircle,
+  AlertTriangle, BarChart3, Settings, Camera, Edit, DollarSign, 
+  TrendingUp, Bell, ChevronLeft, ChevronRight, CalendarDays
 } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 import AttendanceForm from '../components/AttendanceForm';
 import NotificationSystem from '../components/NotificationSystem';
 import { getCameraVerificationSettings } from '../utils/supabaseClient';
+import Calendar from 'react-calendar';
+import { format, isToday, isWeekend, parseISO, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { id } from 'date-fns/locale';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -43,6 +34,9 @@ const Dashboard = () => {
   const [showAttendanceForm, setShowAttendanceForm] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [cameraVerificationEnabled, setCameraVerificationEnabled] = useState(true);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [calendarAttendance, setCalendarAttendance] = useState({});
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Memoize expensive calculations
   const isAdmin = useMemo(() => profile?.role === 'admin', [profile?.role]);
@@ -76,7 +70,12 @@ const Dashboard = () => {
         fetchSalaryInfo(user.id),
         fetchWarnings(user.id),
         fetchCameraSettings()
-      ]);
+      ]).then(() => {
+        // After fetching data, load calendar data for current month
+        if (user) {
+          fetchMonthlyAttendance(user.id, currentMonth);
+        }
+      });
     } catch (error) {
       console.error('Error checking user:', error);
       navigate('/login');
@@ -308,6 +307,46 @@ const Dashboard = () => {
     }
   }, []);
 
+  const fetchMonthlyAttendance = useCallback(async (userId, date) => {
+    try {
+      const startDate = startOfMonth(date);
+      const endDate = endOfMonth(date);
+      
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'berhasil')
+        .gte('timestamp', startDate.toISOString())
+        .lte('timestamp', endDate.toISOString())
+        .order('timestamp', { ascending: true });
+
+      if (error) throw error;
+      
+      // Process data for calendar
+      const attendanceMap = {};
+      data?.forEach(record => {
+        const date = record.timestamp.split('T')[0];
+        if (!attendanceMap[date]) {
+          attendanceMap[date] = [];
+        }
+        attendanceMap[date].push(record);
+      });
+      
+      setCalendarAttendance(attendanceMap);
+    } catch (error) {
+      console.error('Error fetching monthly attendance:', error);
+    }
+  }, []);
+
+  // When month changes in calendar
+  const handleMonthChange = useCallback((date) => {
+    setCurrentMonth(date);
+    if (user) {
+      fetchMonthlyAttendance(user.id, date);
+    }
+  }, [user, fetchMonthlyAttendance]);
+
   const handleAttendanceClick = useCallback(() => {
     if (cameraVerificationEnabled && !profile?.is_face_registered) {
       setShowProfileModal(true);
@@ -325,6 +364,75 @@ const Dashboard = () => {
 
     setShowAttendanceForm(true);
   }, [profile?.is_face_registered, todayAttendance, cameraVerificationEnabled]);
+
+  // Calendar tile content - show attendance status
+  const tileContent = ({ date, view }) => {
+    if (view !== 'month') return null;
+    
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const records = calendarAttendance[dateStr] || [];
+    
+    const hasCheckIn = records.some(r => r.type === 'masuk');
+    const hasCheckOut = records.some(r => r.type === 'keluar');
+    
+    if (isWeekend(date)) {
+      return (
+        <div className="text-xs text-gray-400 mt-1">
+          Akhir pekan
+        </div>
+      );
+    }
+    
+    if (hasCheckIn && hasCheckOut) {
+      return (
+        <div className="text-xs text-green-600 mt-1">
+          <CheckCircle className="h-3 w-3 inline mr-1" />
+          Lengkap
+        </div>
+      );
+    } else if (hasCheckIn) {
+      return (
+        <div className="text-xs text-orange-500 mt-1">
+          <AlertTriangle className="h-3 w-3 inline mr-1" />
+          Hanya masuk
+        </div>
+      );
+    } else if (date < new Date() && !isToday(date)) {
+      return (
+        <div className="text-xs text-red-500 mt-1">
+          <XCircle className="h-3 w-3 inline mr-1" />
+          Absen
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+  // Calendar tile class - style based on attendance
+  const tileClassName = ({ date, view }) => {
+    if (view !== 'month') return '';
+    
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const records = calendarAttendance[dateStr] || [];
+    
+    const hasCheckIn = records.some(r => r.type === 'masuk');
+    const hasCheckOut = records.some(r => r.type === 'keluar');
+    
+    if (isWeekend(date)) {
+      return 'bg-gray-50';
+    }
+    
+    if (hasCheckIn && hasCheckOut) {
+      return 'bg-green-50 border border-green-200';
+    } else if (hasCheckIn) {
+      return 'bg-orange-50 border border-orange-200';
+    } else if (date < new Date() && !isToday(date)) {
+      return 'bg-red-50 border border-red-200';
+    }
+    
+    return '';
+  };
 
   // Memoize utility functions
   const getStatusColor = useCallback((status) => {
@@ -493,7 +601,7 @@ const Dashboard = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Profile Warning */}
         {!profile?.is_face_registered && (
-          <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200 animate-pulse">
             <div className="flex items-start space-x-3">
               <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
@@ -514,7 +622,7 @@ const Dashboard = () => {
 
         {/* Warnings Alert */}
         {warnings.length > 0 && (
-          <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200">
+          <div className="mb-6 p-4 bg-red-50 rounded-lg border border-red-200 animate-pulse">
             <div className="flex items-start space-x-3">
               <Bell className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
@@ -597,13 +705,22 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Today's Attendance */}
-          <div className="lg:col-span-1">
+          {/* Today's Attendance and Calendar Toggle */}
+          <div className="lg:col-span-1 space-y-6">
             <div className="bg-white rounded-lg shadow-md">
               <div className="px-6 py-4 border-b border-gray-200">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
                   <Clock className="h-5 w-5 text-blue-600" />
                   <h2 className="text-lg font-medium text-gray-900">Absensi Hari Ini</h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowCalendar(!showCalendar)}
+                    className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                  >
+                    <CalendarDays className="h-4 w-4" />
+                    <span className="text-sm">{showCalendar ? 'Tutup' : 'Kalender'}</span>
+                  </button>
                 </div>
               </div>
               <div className="p-6">
@@ -687,6 +804,58 @@ const Dashboard = () => {
                 )}
               </div>
             </div>
+            
+            {/* Calendar View */}
+            {showCalendar && (
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center space-x-2">
+                    <CalendarDays className="h-5 w-5 text-blue-600" />
+                    <h2 className="text-lg font-medium text-gray-900">Kalender Absensi</h2>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <Calendar
+                    onChange={handleMonthChange}
+                    value={currentMonth}
+                    tileContent={tileContent}
+                    tileClassName={tileClassName}
+                    locale={id}
+                    className="w-full border-0"
+                    prevLabel={<ChevronLeft className="h-5 w-5" />}
+                    nextLabel={<ChevronRight className="h-5 w-5" />}
+                    navigationLabel={({ date }) => (
+                      <span className="text-lg font-medium">
+                        {format(date, 'MMMM yyyy', { locale: id })}
+                      </span>
+                    )}
+                  />
+                  
+                  {/* Legend */}
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Keterangan:</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 bg-green-50 border border-green-200 mr-2"></div>
+                        <span>Absensi Lengkap</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 bg-orange-50 border border-orange-200 mr-2"></div>
+                        <span>Hanya Masuk</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 bg-red-50 border border-red-200 mr-2"></div>
+                        <span>Tidak Hadir</span>
+                      </div>
+                      <div className="flex items-center">
+                        <div className="w-4 h-4 bg-gray-50 mr-2"></div>
+                        <span>Akhir Pekan</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Recent Activity */}
@@ -734,7 +903,7 @@ const Dashboard = () => {
                 ) : (
                   <div className="text-center py-8">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <BarChart3 className="h-8 w-8 text-gray-400" />
+                      <BarChart3 className="h-8 w-8 text-gray-400" /> 
                     </div>
                     <p className="text-gray-500">Belum ada aktivitas</p>
                   </div>
@@ -748,7 +917,7 @@ const Dashboard = () => {
       {/* Profile Setup Modal */}
       {showProfileModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="max-w-md w-full bg-white rounded-xl shadow-lg">
+          <div className="max-w-md w-full bg-white rounded-xl shadow-lg animate-fadeIn">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-gray-900">Lengkapi Profil</h2>
@@ -804,7 +973,7 @@ const Dashboard = () => {
       {/* Attendance Form Modal */}
       {showAttendanceForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-fadeIn">
             <div className="relative">
               <button
                 onClick={() => setShowAttendanceForm(false)}
