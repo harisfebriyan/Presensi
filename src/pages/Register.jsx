@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UserPlus, Mail, Lock, User, Camera, AlertCircle, CheckCircle, Building2, Shield, Crown, Users } from 'lucide-react';
+import ReCAPTCHA from 'react-google-recaptcha';
 import { supabase, uploadFile, getFileUrl, isSupabaseConfigured } from '../utils/supabaseClient';
+import RecaptchaInfo from '../components/RecaptchaInfo';
 import CustomFaceCapture from '../components/CustomFaceCapture';
 
 const Register = () => {
@@ -18,6 +20,8 @@ const Register = () => {
   const [faceFingerprint, setFaceFingerprint] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const recaptchaRef = React.createRef();
 
   const handleChange = (e) => {
     setFormData({
@@ -29,6 +33,12 @@ const Register = () => {
   const handleBasicInfoSubmit = (e) => {
     e.preventDefault();
     setError(null);
+    
+    // Validate reCAPTCHA
+    if (!captchaToken) {
+      setError('Silakan verifikasi bahwa Anda bukan robot dengan mencentang reCAPTCHA');
+      return;
+    }
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
@@ -53,6 +63,14 @@ const Register = () => {
     } else {
       setStep(2); // Move to face photo step for non-admin
     }
+  };
+
+  const handleCaptchaChange = (token) => {
+    setCaptchaToken(token);
+  };
+
+  const handleCaptchaExpired = () => {
+    setCaptchaToken(null);
   };
 
   const handleFaceCapture = (photoBlob, fingerprint) => {
@@ -485,9 +503,23 @@ const Register = () => {
                 </div>
               )}
 
+              <div className="mt-6">
+                <div className="flex justify-center">
+                  <ReCAPTCHA
+                    ref={recaptchaRef}
+                    sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} // Fallback to test key if not configured
+                    onChange={handleCaptchaChange}
+                    onExpired={handleCaptchaExpired}
+                    theme="light"
+                  />
+                </div>
+              </div>
+              
+              <RecaptchaInfo />
+
               <button
                 type="submit"
-                disabled={isLoading || !isSupabaseConfigured()}
+                disabled={isLoading || !isSupabaseConfigured() || !captchaToken}
                 className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 {isLoading ? (

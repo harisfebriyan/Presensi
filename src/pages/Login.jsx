@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LogIn, Mail, Lock, AlertCircle, Building2, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import ReCAPTCHA from 'react-google-recaptcha';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
+import RecaptchaInfo from '../components/RecaptchaInfo';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -14,6 +16,8 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const recaptchaRef = React.createRef();
 
   useEffect(() => {
     // Check for success message from registration
@@ -39,6 +43,13 @@ const Login = () => {
     setIsLoading(true);
     setError(null);
     setSuccessMessage(null);
+    
+    // Validate reCAPTCHA
+    if (!captchaToken) {
+      setError('Silakan verifikasi bahwa Anda bukan robot dengan mencentang reCAPTCHA');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       console.log('Mencoba login untuk:', formData.email);
@@ -142,6 +153,13 @@ const Login = () => {
       setIsLoading(false);
     }
   };
+  const handleCaptchaChange = (token) => {
+    setCaptchaToken(token);
+  };
+
+  const handleCaptchaExpired = () => {
+    setCaptchaToken(null);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 to-indigo-800 flex items-center justify-center p-4">
@@ -241,9 +259,23 @@ const Login = () => {
               </div>
             </div>
 
+            <div className="mt-6">
+              <div className="flex justify-center">
+                <ReCAPTCHA
+                  ref={recaptchaRef}
+                  sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} // Fallback to test key if not configured
+                  onChange={handleCaptchaChange}
+                  onExpired={handleCaptchaExpired}
+                  theme="light"
+                />
+              </div>
+            </div>
+            
+            <RecaptchaInfo />
+
             <button
               type="submit"
-              disabled={isLoading || !isSupabaseConfigured()}
+              disabled={isLoading || !isSupabaseConfigured() || !captchaToken}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {isLoading ? (
@@ -260,6 +292,12 @@ const Login = () => {
               )}
             </button>
           </form>
+          
+          <div className="mt-6 text-center">
+            <p className="text-gray-600 text-sm">
+              Belum punya akun? <Link to="/register" className="text-blue-600 hover:underline font-medium">Daftar di sini</Link>
+            </p>
+          </div>
 
          
         </div>

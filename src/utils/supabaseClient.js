@@ -281,8 +281,8 @@ let cacheTime = 0;
 export const getCameraVerificationSettings = async (forceRefresh = false) => {
   // Use a simple in-memory cache to avoid excessive requests
   
-  // Cache for 5 minutes unless force refresh
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  // Cache for 2 minutes unless force refresh
+  const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
   const now = Date.now();
   
   if (!forceRefresh && cachedSettings && (now - cacheTime < CACHE_DURATION)) {
