@@ -531,9 +531,7 @@ const AdminPanel = () => {
 
             <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
               <div className="flex items-center">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <Bell className="h-6 w-6 text-red-600" />
-                </div>
+
                
               </div>
             </div>
