@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { LogIn, Mail, Lock, AlertCircle, Building2, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import ReCAPTCHA from 'react-google-recaptcha';
 import { supabase, isSupabaseConfigured } from '../utils/supabaseClient';
