@@ -650,7 +650,7 @@ const ProfileSetup = () => {
             {activeTab === 'bank' && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-6">Informasi Rekening Bank</h3>
-                
+
                 <div className="space-y-6">
                   <div className="p-4 bg-blue-50 rounded-lg mb-6">
                     <div className="flex items-start space-x-3">
@@ -670,6 +670,7 @@ const ProfileSetup = () => {
                       <Building className="h-4 w-4 inline mr-1" />
                       Pilih Bank *
                     </label>
+                    <div className="relative">
                     <select
                       name="bank_id"
                       value={bankData.bank_id}
@@ -683,6 +684,7 @@ const ProfileSetup = () => {
                         </option>
                       ))}
                     </select>
+                    </div>
                     {getSelectedBank() && (
                       <div className="mt-2 flex items-center space-x-2 text-sm text-gray-600">
                         {getSelectedBank().bank_logo && (
@@ -690,9 +692,22 @@ const ProfileSetup = () => {
                             src={getSelectedBank().bank_logo} 
                             alt={getSelectedBank().bank_name}
                             className="w-6 h-6 object-contain"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = '';
+                              e.target.parentElement.innerHTML = `
+                                <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                  </svg>
+                                </div>
+                              `;
+                            }}
                           />
                         )}
-                        <span>Bank {getSelectedBank().bank_name}</span>
+                        {getSelectedBank() && (
+                          <span>Bank {getSelectedBank().bank_name}</span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -752,6 +767,36 @@ const ProfileSetup = () => {
                       </div>
                     )}
                   </button>
+                  
+                  {/* Bank Logos Preview */}
+                  <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-3">Bank Tersedia</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {banks.map((bank) => (
+                        <div 
+                          key={bank.id}
+                          className={`p-3 rounded-lg border transition-colors cursor-pointer ${
+                            bankData.bank_id === bank.id 
+                              ? 'border-blue-500 bg-blue-50' 
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                          onClick={() => setBankData(prev => ({ ...prev, bank_id: bank.id }))}
+                        >
+                          <div className="flex items-center space-x-2">
+                            {bank.bank_logo ? (
+                              <img src={bank.bank_logo} alt={bank.bank_name} className="w-8 h-8 object-contain bg-white rounded" />
+                            ) : (
+                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <Building className="h-4 w-4 text-blue-600" />
+                              </div>
+                            )}
+                            <span className="text-sm font-medium">{bank.bank_name}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
                 </div>
               </div>
             )}
@@ -829,12 +874,12 @@ const ProfileSetup = () => {
 
                 <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
                   <h4 className="font-medium text-yellow-800 mb-2">🔒 Tips Keamanan Password</h4>
-                  <ul className="text-sm text-yellow-700 space-y-1">
-                    <li>• Gunakan minimal 6 karakter</li>
-                    <li>• Kombinasikan huruf besar, kecil, dan angka</li>
-                    <li>• Jangan gunakan informasi pribadi yang mudah ditebak</li>
-                    <li>• Ubah password secara berkala</li>
-                  </ul>
+                  <div className="text-sm text-yellow-700 space-y-1">
+                    <p>• Gunakan minimal 6 karakter</p>
+                    <p>• Kombinasikan huruf besar, kecil, dan angka</p>
+                    <p>• Jangan gunakan informasi pribadi yang mudah ditebak</p>
+                    <p>• Ubah password secara berkala</p>
+                  </div>
                 </div>
               </div>
             )}
