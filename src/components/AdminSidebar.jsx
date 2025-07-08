@@ -112,8 +112,8 @@ const AdminSidebar = ({ user, profile }) => {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
+      {/* Mobile menu button - always visible */}
+      <div className="lg:hidden fixed top-4 left-4 z-50 print:hidden">
         <button
           onClick={() => setIsMobileOpen(!isMobileOpen)}
           className="p-2 rounded-lg bg-white shadow-md text-gray-700 hover:bg-gray-100"
@@ -123,19 +123,20 @@ const AdminSidebar = ({ user, profile }) => {
       </div>
 
       {/* Mobile overlay */}
-      {isMobileOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
-          onClick={() => setIsMobileOpen(false)}
-        ></div>
-      )}
+      <div 
+        className={`lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300 ${
+          isMobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={() => setIsMobileOpen(false)}
+      ></div>
 
       {/* Sidebar */}
       <div className={`fixed inset-y-0 left-0 z-40 bg-white shadow-lg transition-all duration-300 ease-in-out
-        ${isCollapsed ? 'w-20' : 'w-64'} 
-        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+        ${isCollapsed ? 'w-20' : 'w-64'}
+        ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        print:hidden`}
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-center h-16 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
             <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-start px-4'}`}>
@@ -166,7 +167,7 @@ const AdminSidebar = ({ user, profile }) => {
           </div>
 
           {/* Menu items */}
-          <nav className="flex-1 overflow-y-auto py-4">
+          <nav className="flex-1 overflow-y-auto py-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
             <ul className="space-y-1">
               {menuItems.map((item) => (
                 <li key={item.title}>
