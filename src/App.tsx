@@ -19,9 +19,11 @@ import { LanguageProvider } from './utils/languageContext';
 function App() {
   return (
     <LanguageProvider>
-      <Router>
-        <AppContent />
-      </Router>
+      <div className="flex flex-col min-h-screen">
+        <Router>
+          <AppContent />
+        </Router>
+      </div>
     </LanguageProvider>
   );
 }
@@ -135,77 +137,79 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      <Route 
-        path="/login" 
-        element={!session ? <Login /> : (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} 
-      />
-      <Route 
-        path="/register" 
-        element={!session ? <Register /> : (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} 
-      />
-      <Route 
-        path="/dashboard" 
-        element={session ? (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Dashboard />) : <Navigate to="/login" replace />} 
-      />
-      <Route 
-        path="/profile-setup" 
-        element={session ? <ProfileSetup /> : <Navigate to="/login" replace />} 
-      />
-      <Route 
-        path="/history" 
-        element={session ? <AttendanceHistory /> : <Navigate to="/login" replace />} 
-      />
-      <Route 
-        path="/admin" 
-        element={session && userRole === 'admin' ? <AdminPanel /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-      />
-      <Route 
-        path="/admin/users" 
-        element={session && userRole === 'admin' ? <UserManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-      />
-      <Route 
-        path="/admin/departments" 
-        element={session && userRole === 'admin' ? <DepartmentManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-      />
-      <Route 
-        path="/admin/positions" 
-        element={session && userRole === 'admin' ? <PositionManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-      />
-      <Route 
-        path="/admin/salary-payment" 
-        element={session && userRole === 'admin' ? <SalaryPaymentManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-      />
-      <Route 
-        path="/admin/location" 
-        element={session && userRole === 'admin' ? <LocationSettings /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-      />
-      <Route 
-        path="/admin/bank" 
-        element={session && userRole === 'admin' ? <BankManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-      />
-      <Route 
-        path="/admin/attendance" 
-        element={session && userRole === 'admin' ? <AttendanceManagementByDate /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
-      />
-      <Route 
-        path="/" 
-        element={
-          !session ? <Navigate to="/login" replace /> : 
-          userRole === 'admin' ? <Navigate to="/admin" replace /> : 
-          <Navigate to="/dashboard" replace />
-        } 
-      />
-      {/* Catch-all route to handle 404s */}
-      <Route 
-        path="*" 
-        element={
-          !session ? <Navigate to="/login" replace /> : 
-          userRole === 'admin' ? <Navigate to="/admin" replace /> : 
-          <Navigate to="/dashboard" replace />
-        } 
-      />
-    </Routes>
+    <div className="flex flex-col flex-1">
+      <Routes>
+        <Route 
+          path="/login" 
+          element={!session ? <Login /> : (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} 
+        />
+        <Route 
+          path="/register" 
+          element={!session ? <Register /> : (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />)} 
+        />
+        <Route 
+          path="/dashboard" 
+          element={session ? (userRole === 'admin' ? <Navigate to="/admin" replace /> : <Dashboard />) : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/profile-setup" 
+          element={session ? <ProfileSetup /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/history" 
+          element={session ? <AttendanceHistory /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/admin" 
+          element={session && userRole === 'admin' ? <AdminPanel /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route 
+          path="/admin/users" 
+          element={session && userRole === 'admin' ? <UserManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route 
+          path="/admin/departments" 
+          element={session && userRole === 'admin' ? <DepartmentManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route 
+          path="/admin/positions" 
+          element={session && userRole === 'admin' ? <PositionManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route 
+          path="/admin/salary-payment" 
+          element={session && userRole === 'admin' ? <SalaryPaymentManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route 
+          path="/admin/location" 
+          element={session && userRole === 'admin' ? <LocationSettings /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route 
+          path="/admin/bank" 
+          element={session && userRole === 'admin' ? <BankManagement /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route 
+          path="/admin/attendance" 
+          element={session && userRole === 'admin' ? <AttendanceManagementByDate /> : <Navigate to={session ? "/dashboard" : "/login"} replace />} 
+        />
+        <Route 
+          path="/" 
+          element={
+            !session ? <Navigate to="/login" replace /> : 
+            userRole === 'admin' ? <Navigate to="/admin" replace /> : 
+            <Navigate to="/dashboard" replace />
+          } 
+        />
+        {/* Catch-all route to handle 404s */}
+        <Route 
+          path="*" 
+          element={
+            !session ? <Navigate to="/login" replace /> : 
+            userRole === 'admin' ? <Navigate to="/admin" replace /> : 
+            <Navigate to="/dashboard" replace />
+          } 
+        />
+      </Routes>
+    </div>
   );
 }
 
