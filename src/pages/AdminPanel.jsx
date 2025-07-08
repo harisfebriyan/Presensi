@@ -529,12 +529,7 @@ const AdminPanel = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center">
-
-               
-              </div>
-            </div>
+         
           </div>
 
           {/* Alert Sections for Late and Absent Employees */}
