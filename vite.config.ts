@@ -7,6 +7,12 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  server: {
+    hmr: {
+      overlay: false
+    },
+    historyApiFallback: true
+  },
   build: {
     rollupOptions: {
       output: {
@@ -20,9 +26,4 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 1000
   },
-  server: {
-    hmr: {
-      overlay: false
-    }
-  }
 });
